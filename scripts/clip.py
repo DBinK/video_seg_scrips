@@ -1,16 +1,17 @@
+from datetime import datetime
+import yaml
 import subprocess
 from rich import print
 from pathlib import Path
 import csv
-from moviepy import VideoFileClip
+
 
 
 # ============================================================
-#                  通用工具函数
+#                  基础工具（不改）
 # ============================================================
 
 def parse_csv_rows(csv_file: Path):
-    """读取 CSV 统一生成结构化数据"""
     with csv_file.open("r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -36,13 +37,11 @@ def parse_csv_rows(csv_file: Path):
 
 
 def format_srt_time(m, s):
-    """格式化成 SRT 的时间格式"""
     t = m * 60 + s
     return f"{t//3600:02d}:{(t%3600)//60:02d}:{t%60:02d},000"
 
 
 def build_output_name(base_name: str, info: dict):
-    """统一生成输出视频文件名"""
     return (
         f"{base_name}_{info['index']:03d}_"
         f"{info['start_min']:02d}.{info['start_sec']:02d}_"
@@ -54,12 +53,12 @@ def log_clip(info: dict):
     print(f"[处理] index={info['index']:03d} [{info['start_time']}s → {info['end_time']}s]")
 
 
+
 # ============================================================
-#                  单个数据集的核心处理逻辑
+#       通用数据定位（自动找到 CSV + 视频 + base_name）
 # ============================================================
 
-def locate_dataset_files(folder: Path):
-    """返回 (csv_file, video_file, base_name)，自动匹配"""
+def get_dataset_files(folder: Path):
     csv_files = list(folder.glob("*.csv"))
     if not csv_files:
         print("[错误] 未找到 CSV")
@@ -70,34 +69,155 @@ def locate_dataset_files(folder: Path):
     video_file = folder / f"{base_name}.mp4"
 
     if not video_file.exists():
-        print(f"[错误] 找到 CSV {csv_file.name}，但没有对应视频 {video_file.name}")
+        print(f"[错误] 找到 CSV {csv_file.name}，但未找到视频 {video_file.name}")
         return None
 
     return csv_file, video_file, base_name
 
 
+
+def generate_metadata(folder_str: str):
+    """在数据目录下自动生成 metadata.yaml，如果已存在则跳过。"""
+    folder = Path(folder_str)
+
+    # 查找 CSV
+    csv_files = list(folder.glob("*.csv"))
+    if not csv_files:
+        print(f"[错误] 未找到 CSV：{folder}")
+        return
+
+    csv_file = csv_files[0]
+    base_name = csv_file.stem
+    meta_path = folder / "metadata.yaml"
+
+    # 已存在就跳过
+    if meta_path.exists():
+        print(f"[跳过] metadata 已存在: {meta_path}")
+        return
+
+    # 计算总时长
+    total_seconds = 0
+    with csv_file.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            start = int(row["Start_Min"]) * 60 + int(row["Start_Sec"])
+            end = int(row["End_Min"]) * 60 + int(row["End_Sec"])
+            used = end - start
+            total_seconds += used
+
+    # metadata 结构
+    meta = {
+        "dataset_name": base_name,
+        "description": "",     # 供你填写描述
+        "annotator": "",       # 可空
+        "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+
+        "total_seconds": total_seconds,
+
+        "payment": {
+            "count_by_range": {},         # 计费后填
+            "total_segments": 0,          # 计费后填
+            "total_fee": 0,               # 计费后填
+        }
+    }
+
+    # 写入文件
+    meta_path.write_text(yaml.safe_dump(meta, allow_unicode=True), encoding="utf-8")
+
+    print(f"[META] 已生成 metadata: {meta_path}")
+    print(f"[META] 采集有效总时长: {total_seconds} 秒")
+
+
 # ============================================================
-#               生成字幕 (一个参数)
+#                        计价
 # ============================================================
 
-def generate_srt(folder: Path):
-    result = locate_dataset_files(folder)
+def find_price_and_label(seconds: int, rules: list[dict]):
+    for r in rules:
+        if r["min"] <= seconds < r["max"]:
+            return r["price"], r["label"]
+    return 0.0, None
+
+
+
+def calc_payment(folder_str: str):
+    folder = Path(folder_str)
+    print(f"\n[计价] {folder}")
+
+    result = get_dataset_files(folder)
+    if result is None:
+        return
+
+    csv_file, _, base_name = result
+
+    meta_yaml = folder / "metadata.yaml"
+    if not meta_yaml.exists():
+        print("[警告] 未找到 metadata.yaml")
+        return
+
+    meta = yaml.safe_load(meta_yaml.read_text(encoding="utf-8"))
+    rules = [
+        {"min": 5,  "max": 10, "price": 0.5, "label": "5-10s"},
+        {"min": 10, "max": 15, "price": 0.8, "label": "10-15s"},
+        {"min": 15, "max": 20, "price": 1.2, "label": "15-20s"},
+    ]
+
+    # 初始化统计结构
+    count_by_range = {
+        r["label"]: {"count": 0, "price": r["price"], "subtotal": 0.0}
+        for r in rules
+    }
+
+    total_fee = 0
+    total_sec = 0
+    count = 0
+
+    for info in parse_csv_rows(csv_file):
+        used = info["used_time"]
+        total_sec += used
+        count += 1
+
+        price, label = find_price_and_label(used, rules)
+        if label:
+            count_by_range[label]["count"] += 1
+            count_by_range[label]["subtotal"] = round(
+                count_by_range[label]["count"] * count_by_range[label]["price"], 2
+            )
+        total_fee += price
+
+    # 写回 metadata
+    meta["payment"]["count_by_range"] = count_by_range
+    meta["payment"]["total_segments"] = count
+    meta["payment"]["total_fee"] = round(total_fee, 2)
+
+    meta_yaml.write_text(yaml.safe_dump(meta, allow_unicode=True), encoding="utf-8")
+
+    print(f"[PAY] updated {meta_yaml.name}: {count} segments, total fee {total_fee} RMB")
+
+
+
+# ============================================================
+#                      生成字幕
+# ============================================================
+
+def generate_srt(folder_str: str):
+    folder = Path(folder_str)
+    print(f"\n[SRT] {folder}")
+
+    result = get_dataset_files(folder)
     if result is None:
         return
 
     csv_file, _, base_name = result
     srt_path = folder / f"{base_name}.srt"
+
     lines = []
 
     for idx, info in enumerate(parse_csv_rows(csv_file), start=1):
         t_start = format_srt_time(info["start_min"], info["start_sec"])
         t_end = format_srt_time(info["end_min"], info["end_sec"])
 
-        content = (
-            f"index={idx} "
-            f"{info['start_min']:02d}:{info['start_sec']:02d} - "
-            f"{info['end_min']:02d}:{info['end_sec']:02d}"
-        )
+        content = f"index={idx} {info['start_min']:02d}:{info['start_sec']:02d} - {info['end_min']:02d}:{info['end_sec']:02d}"
 
         block = f"{idx}\n{t_start} --> {t_end}\n{content}\n"
         lines.append(block)
@@ -106,22 +226,29 @@ def generate_srt(folder: Path):
     print(f"[SRT] 已生成字幕: {srt_path}")
 
 
+
 # ============================================================
-#                   FFmpeg 极速剪辑 (一个参数)
+#                  FFmpeg 极速剪辑
 # ============================================================
 
-def clip_video_ffmpeg(folder: Path):
-    result = locate_dataset_files(folder)
+def clip_video_ffmpeg(folder_str: str):
+    folder = Path(folder_str)
+    print(f"\n[剪辑] {folder}")
+
+    result = get_dataset_files(folder)
     if result is None:
         return
 
     csv_file, video_file, base_name = result
 
+    seg_dir = folder / f"{base_name}_seg"
+    seg_dir.mkdir(exist_ok=True)
+
     for info in parse_csv_rows(csv_file):
         log_clip(info)
 
         out_name = build_output_name(base_name, info)
-        out_path = folder / out_name
+        out_path = seg_dir / out_name
 
         cmd = [
             "ffmpeg",
@@ -137,60 +264,35 @@ def clip_video_ffmpeg(folder: Path):
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+
 # ============================================================
-#                  MoviePy 剪辑 (一个参数)
+#                  单个数据集处理
 # ============================================================
 
-def clip_video_moviepy(folder: Path):
-    result = locate_dataset_files(folder)
-    if result is None:
-        return
+def process_single_dataset(folder_str: str):
+    print(f"\n[开始处理] {folder_str}")
 
-    csv_file, video_file, base_name = result
+    generate_srt(folder_str)
+    # clip_video_ffmpeg(folder_str)
+    generate_metadata(folder_str)
+    calc_payment(folder_str)
 
-    with VideoFileClip(str(video_file)) as video:
-        for info in parse_csv_rows(csv_file):
-            log_clip(info)
-            out_name = build_output_name(base_name, info)
-            out_path = folder / out_name
+    print(f"[完成] {folder_str}")
 
-            subclip = video.subclipped(info["start_time"], info["end_time"])
-            subclip.write_videofile(
-                str(out_path),
-                codec="libx264",
-                audio_codec="aac",
-                threads=8,
-                preset="ultrafast",
-            )
 
 
 # ============================================================
-#                     处理一个 dataset 目录
-# ============================================================
-
-def process_single_data(folder_str: str):
-    folder = Path(folder_str)
-    print(f"\n[开始处理目录] {folder}")
-
-    generate_srt(folder)
-    clip_video_ffmpeg(folder)   # 速度飞快, 需要安装 ffmpeg: winget install ffmpeg / sudo apt install ffmpeg
-    # clip_video_moviepy(folder)  # 速度较慢, 
-
-    print(f"[完成] {folder}")
-
-
-# ============================================================
-#               批量处理 dataset 根目录
+#                 批量处理 dataset 根目录
 # ============================================================
 
 def process_multi_dataset(root_str: str):
     root = Path(root_str)
     sub_folders = [p for p in root.iterdir() if p.is_dir()]
 
-    print(f"[发现] {len(sub_folders)} 个子数据集")
-
+    print(f"[发现] {len(sub_folders)} 个子目录")
     for folder in sub_folders:
-        process_single_data(str(folder))
+        process_single_dataset(str(folder))
+
 
 
 # ============================================================
@@ -198,4 +300,5 @@ def process_multi_dataset(root_str: str):
 # ============================================================
 
 if __name__ == "__main__":
-    process_multi_dataset("./dataset")
+    # process_multi_dataset("./dataset/ziji")
+    process_single_dataset("./dataset/ziji/MJ1_205")
