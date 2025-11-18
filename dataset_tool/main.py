@@ -1,12 +1,13 @@
 # main.py
-from rich import print
 from pathlib import Path
 
-from utils import list_subfolders
+import yaml
+from rich import print
+
+from clip import clip_video_ffmpeg, generate_srt
 from metadata import generate_metadata
 from payment import calc_payment_to_yaml, get_info_from_yaml
-from clip import clip_video_ffmpeg, generate_srt
-import yaml
+from utils import list_subfolders
 
 
 def process_multi_dataset(root_str: str):
@@ -21,7 +22,7 @@ def process_multi_dataset(root_str: str):
     Args:
         root_str (str): 包含多个数据集的根目录路径
     """
-
+    print(f"\n[开始处理] {root_str} 的所有数据集")
     sub_folders = list_subfolders(root_str)
 
     for folder in sub_folders:
@@ -39,7 +40,7 @@ def process_multi_dataset(root_str: str):
         # 计算费用写入元数据
         calc_payment_to_yaml(str(folder))
 
-        print(f"[完成] {folder}")
+    print(f"\n[完成] {root_str} 的 字幕, 元数据, 计费")
 
 
 def generate_report_yaml(root_str: str):
@@ -52,7 +53,8 @@ def generate_report_yaml(root_str: str):
     Args:
         root_str (str): 包含多个数据集的根目录路径
     """
-    
+    print(f"\n[总报告] 开始生成 {root_str} 的总报告")
+
     root = Path(root_str)
     sub_folders = list_subfolders(root_str)
 
@@ -94,11 +96,11 @@ def generate_report_yaml(root_str: str):
         encoding="utf-8"
     )
 
-    print("\n所有数据处理完毕")
-    print(f"[总计] {total_datasets} 个视频文件")
-    print(f"[总计] {total_clips} 个片段")
-    print(f"[总计] {total_payment} CNY")
-    print(f"[汇总] 已生成报告: {out_yaml}")
+    print("=== 所有数据处理完毕 ===")
+    print(f"[总报告] {total_datasets} 个视频文件")
+    print(f"[总报告] {total_clips} 个片段")
+    print(f"[总报告] {total_payment:.2f} CNY")
+    print(f"[总报告] 已生成报告: {out_yaml}")
 
 
 if __name__ == "__main__":

@@ -57,7 +57,7 @@ def format_srt_time(m, s):
 
 def generate_srt(folder_str: str):
     folder = Path(folder_str)
-    print(f"\n[SRT] {folder}")
+    # print(f"\n[SRT] {folder}")
 
     result = get_dataset_files(folder)
     if result is None:

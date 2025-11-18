@@ -19,8 +19,7 @@ def generate_metadata(folder_str: str):
     meta_path = folder / "meta.yaml"
 
     if meta_path.exists():
-        print(f"[跳过] meta.yaml 已存在: {meta_path}")
-        return
+        print(f"[注意] meta.yaml 已存在: {meta_path}, 将被覆盖")
 
     total_seconds = 0
     with csv_file.open("r", encoding="utf-8") as f:
@@ -50,7 +49,7 @@ def generate_metadata(folder_str: str):
     )
 
     print(f"[META] 已生成 meta.yaml: {meta_path}")
-    print(f"[META] 总时长: {total_seconds} 秒")
+    print(f"[META] 有效数据总时长: {total_seconds} 秒")
 
 
 if __name__ == "__main__":

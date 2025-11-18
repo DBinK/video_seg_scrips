@@ -14,7 +14,7 @@ def find_price_and_label(seconds: int, rules: list[dict]):
 
 def calc_payment_to_yaml(folder_str: str):
     folder = Path(folder_str)
-    print(f"\n[计价] {folder}")
+    # print(f"\n[计价] {folder}")
 
     result = get_dataset_files(folder)
     if result is None:
@@ -64,7 +64,7 @@ def calc_payment_to_yaml(folder_str: str):
         encoding="utf-8"
     )
 
-    print(f"[PAY] total_fee={total_fee}")
+    print(f"[PAY] total_fee={round(total_fee, 2)}")
 
 
 def get_info_from_yaml(folder_str: str):
