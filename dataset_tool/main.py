@@ -103,7 +103,7 @@ def generate_report_yaml(root_str: str):
 
 if __name__ == "__main__":
 
-    root_dir = "./dataset/ziji"   # 数据集目录
+    root_dir = "./dataset/ziji2"   # 数据集目录
 
     # 处理多个数据
     process_multi_dataset(root_dir)

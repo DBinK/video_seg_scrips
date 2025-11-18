@@ -7,7 +7,7 @@ from utils import parse_csv_rows, get_dataset_files
 
 def find_price_and_label(seconds: int, rules: list[dict]):
     for r in rules:
-        if r["min"] <= seconds < r["max"]:
+        if r["min"] < seconds <= r["max"]:
             return r["price"], r["label"]
     return 0.0, None
 
@@ -30,10 +30,10 @@ def calc_payment_to_yaml(folder_str: str):
     meta = yaml.safe_load(meta_yaml.read_text(encoding="utf-8"))
 
     rules = [
-        {"min": 5,  "max": 10, "price": 0.5, "label": "5-10s"},
+        {"min": 5-0.1,  "max": 10, "price": 0.5, "label": "5-10s"},
         {"min": 10, "max": 15, "price": 0.8, "label": "10-15s"},
-        {"min": 15, "max": 20, "price": 1.2, "label": "15-20s"},
-    ]
+        {"min": 15, "max": 20+0.1, "price": 1.2, "label": "15-20s"},
+    ]   # +- 0.1，确保 5 秒和 20 秒的数据能被正确归类到对应的区间内
 
     count_by_range = {
         r["label"]: {"count": 0, "price": r["price"], "subtotal": 0.0}
