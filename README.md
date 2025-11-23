@@ -18,14 +18,24 @@ dataset_tool/
 在处理数据之前，需要按照特定的结构组织你的数据集：
 
 ```
-dataset/
-└── ziji/                    # 数据集根目录, 可以是任意名称
-    ├── video1_xxx/          # 单个视频数据目录
-    │   ├── video1.mp4       # 视频文件
-    │   └── video1.csv       # 时间戳标记文件
-    └── video2_xxx/
-        ├── video2.mp4
-        └── video2.csv
+dataset/                     # 在项目根目录, 新建这个文件夹
+└── ziji1/                    # 数据集根目录, 可以是任意名称, 建议交付一次就创建一个文件夹
+│   ├── video1_xxx/          # 单个视频数据目录
+│   │   ├── video1.mp4       # 视频文件
+│   │   └── video1.csv       # 时间戳标记文件
+│   ├── video2_xxx/
+│   │   ├── video2.mp4
+│   │   ├── video2.csv
+│   └── ...
+├── ziji2/
+│   ├── video1_xxx/      
+│   │   ├── video1.mp4     
+│   │   └── video1.csv      
+│   ├── video2_xxx/
+│   │   ├── video2.mp4
+│   │   ├── video2.csv
+│   └── ...
+└── ...
 ```
 
 CSV 文件格式要求：
@@ -38,7 +48,7 @@ Index,Start_Min,Start_Sec,End_Min,End_Sec
 
 ### 指定数据集目录
 
-默认情况下，程序会处理项目根目录下 `dataset/ziji` 目录的数据集。
+默认情况下，程序会处理项目根目录下 `dataset/ziji1` 目录的数据集。
 
 处理自己的数据，请修改 [main.py](main.py) 中的调用参数。
 
@@ -49,7 +59,7 @@ Index,Start_Min,Start_Sec,End_Min,End_Sec
 
 if __name__ == "__main__":
 
-    root_dir = "dataset/ziji"  # 数据集目录
+    root_dir = "dataset/ziji1"  # 数据集目录
 
     # 处理多个数据
     process_multi_dataset(root_dir)
