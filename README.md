@@ -48,24 +48,29 @@ Index,Start_Min,Start_Sec,End_Min,End_Sec
 
 ### 指定数据集目录
 
-默认情况下，程序会处理项目根目录下 `dataset/ziji1` 目录的数据集。
-
-处理自己的数据，请修改 [main.py](main.py) 中的调用参数。
+处理自己的数据，请修改 [main.py](main.py) 中的 `root_list` 列表，将需要处理的数据集目录添加进去。
 
 ```python
 # main.py
 
-# ... main.py 中的代码
-
 if __name__ == "__main__":
 
-    root_dir = "dataset/ziji1"  # 数据集目录
+    root_list = [
+        # "./dataset/ziji3",
+        "./dataset/ziji4",
+        "./dataset/ziji5",
+        "./dataset/ziji6",
+        "./dataset/ziji7",
+        "./dataset/ziji8",
+    ]
 
-    # 处理多个数据
-    process_multi_dataset(root_dir)
+    # 处理每个数据集
+    for root_str in root_list:
+        process_multi_dataset(root_str)
+        generate_report_yaml(root_str)
 
-    # 生成总报告
-    generate_all_fee_yaml(root_dir)
+    # 合并报告
+    sum_reports(root_list)
 
 ```
 
