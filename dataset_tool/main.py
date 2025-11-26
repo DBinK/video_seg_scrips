@@ -84,7 +84,7 @@ def generate_report_yaml(root_str: str):
     total_payment = round(total_payment, 2)
 
     data = {
-        "root_dir": str(root),
+        "root_dir": root.as_posix(),
         "total_datasets": total_datasets,
         "total_clips": total_clips,
         "total_payment": total_payment,
@@ -102,14 +102,71 @@ def generate_report_yaml(root_str: str):
     print(f"[总报告] {total_payment:.2f} CNY")
     print(f"[总报告] 已生成报告: {out_yaml}")
 
+def sum_reports(root_list: list[str]):
+    """
+    合并多个数据集的总报告
+    
+    遍历指定的根目录列表，从每个根目录的report.yaml文件中提取总报告信息，
+    并合并成一个总报告文件(all_report.yaml)，包含所有数据集的详细信息和总费用。
+    
+    Args:
+        root_list (list[str]): 包含多个数据集的根目录列表
+    """
+
+    all_report = []
+
+    total_report_payment = 0.0
+    total_report_clips   = 0
+    total_report_datasets = 0
+
+    for root_str in root_list:
+        root = Path(root_str)
+        report_yaml = root / "report.yaml"
+        data: dict = yaml.safe_load(report_yaml.read_text(encoding="utf-8"))
+        data.pop("datasets", None)  # 删除数据集详细信息
+
+        total_report_payment += data["total_payment"]
+        total_report_clips   += data["total_clips"]
+        total_report_datasets += data["total_datasets"]
+
+        all_report.append(data)
+    
+    yaml_path = Path(root_list[0]).parent   # 选取第1个数据的父目录作为保存路径
+    yaml_data = {
+        "root_dir": yaml_path.as_posix(),
+        "total_report_datasets": total_report_datasets,
+        "total_report_clips": total_report_clips,
+        "total_report_payment": total_report_payment,
+        "all_report": all_report,
+    }
+
+    out_yaml = yaml_path / "all_report.yaml"
+    out_yaml.write_text(
+        yaml.safe_dump(yaml_data, allow_unicode=True, sort_keys=False),
+        encoding="utf-8"
+    )
+
+    print("=== 所有报告概览 ===")
+    print(yaml_data)
+
+
+
 
 if __name__ == "__main__":
 
-    root_dir = "./dataset/ziji4"   # 数据集目录
+    root_list = [
+        # "./dataset/ziji3",
+        "./dataset/ziji4",
+        "./dataset/ziji5",
+        "./dataset/ziji6",
+        "./dataset/ziji7",
+        "./dataset/ziji8",
+    ]
 
-    # 处理多个数据
-    process_multi_dataset(root_dir)
+    # 处理每个数据集
+    for root_str in root_list:
+        process_multi_dataset(root_str)
+        generate_report_yaml(root_str)
 
-    # 生成总报告
-    generate_report_yaml(root_dir)
-
+    # 合并报告
+    sum_reports(root_list)
