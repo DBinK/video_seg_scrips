@@ -19,7 +19,7 @@ dataset_tool/
 
 ```
 dataset/                     # 在项目根目录, 新建这个文件夹
-└── ziji1/                    # 数据集根目录, 可以是任意名称, 建议交付一次就创建一个文件夹
+└── ziji1/                   # 数据集根目录, 可以是任意名称, 建议交付一次就创建一个文件夹
 │   ├── video1_xxx/          # 单个视频数据目录
 │   │   ├── video1.mp4       # 视频文件
 │   │   └── video1.csv       # 时间戳标记文件
@@ -48,7 +48,8 @@ Index,Start_Min,Start_Sec,End_Min,End_Sec
 
 ### 指定数据集目录
 
-处理自己的数据，请修改 [main.py](main.py) 中的 `root_list` 列表，将需要处理的数据集目录添加进去。
+处理自己的数据，请修改 [main.py](main.py) 中的 `root_list` 列表，将需要处理的数据集目录添加进去
+所有数据必须放在 `dataset` 目录下
 
 ```python
 # main.py
